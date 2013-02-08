@@ -29,7 +29,15 @@ module ChefFS
       def child(name)
         puts "Child: #{name}"
         result = self.children.select { |child| child.name == name }.first if @children
-        result || CookbookDir.new(name, self)
+        unless result
+          if Chef::Config[:versioned_cookbooks]
+            raise "Cookbook name #{name} not valid: must be name-version" if name !~ /^(.+)-([^-]+)/
+            result = CookbookDir.new(name, self, :cookbook_name => $1, :version => $2)
+          else
+            result = CookbookDir.new(name, self, :cookbook_name => name, :version => '_latest')
+          end
+        end
+        result
       end
 
       def children
@@ -91,7 +99,9 @@ module ChefFS
       end
 
       def can_have_child?(name, is_dir)
-        is_dir
+        return false if !is_dir
+        return false if Chef::Config[:versioned_cookbooks] && name !~ /^(.+)-([^-]+)/
+        return true
       end
     end
   end
