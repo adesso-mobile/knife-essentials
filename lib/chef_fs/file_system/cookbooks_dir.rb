@@ -35,19 +35,21 @@ module ChefFS
       def children
         return @children if @children
         _to_cookbook_dir = if Chef::Config[:versioned_cookbooks]
-                             proc do |key, value|
+                             proc do |cookbook_name, value|
                                value['versions'].map do |cookbook_version|
-                                 puts "New CookbookDir: cookbook_name: #{key}"
-                                 cookbook_name, version = key.split('-')
-                                 CookbookDir.new "#{key}", self,
+                                 version = cookbook_version['version']
+
+                                 puts "#{cookbook_name}-#{version}"
+
+                                 CookbookDir.new "#{cookbook_name}-#{version}", self,
                                    :versions_map  => value,
                                    :version       => version,
                                    :cookbook_name => cookbook_name
                                end
                              end
                            else
-                             proc do |key, value|
-                               CookbookDir.new(key, self, :versions_map => value, :cookbook_name => key, :version => '_latest' )
+                             proc do |cookbook_name, value|
+                               CookbookDir.new(cookbook_name, self, :versions_map => value, :cookbook_name => key, :version => '_latest' )
                              end
                            end
         @children = rest.get_rest(api_path).tap { |x| puts x }.map(&_to_cookbook_dir).flatten.sort_by { |c| c.name }.tap { |x| puts x }
