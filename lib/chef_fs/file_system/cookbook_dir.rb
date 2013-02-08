@@ -180,6 +180,7 @@ module ChefFS
             puts "UPLOAD: api_path: #{api_path}"
             @chef_object ||= rest.get_rest(api_path)
             puts "chef_object: #{chef_object}"
+            @chef_object
           ensure
             Chef::Config[:http_retry_count] = old_retry_count
           end
