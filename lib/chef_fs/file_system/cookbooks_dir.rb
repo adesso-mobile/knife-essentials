@@ -27,12 +27,30 @@ module ChefFS
       end
 
       def child(name)
-        result = @children.select { |child| child.name == name }.first if @children
+        puts "Child: #{name}"
+        result = self.children.select { |child| child.name == name }.first if @children
         result || CookbookDir.new(name, self)
       end
 
       def children
-        @children ||= rest.get_rest(api_path).map { |key, value| CookbookDir.new(key, self, value) }.sort_by { |c| c.name }
+        return @children if @children
+        _to_cookbook_dir = if Chef::Config[:versioned_cookbooks]
+                             proc do |key, value|
+                               value['versions'].map do |cookbook_version|
+                                 puts "New CookbookDir: cookbook_name: #{key}"
+                                 cookbook_name, version = key.split('-')
+                                 CookbookDir.new "#{key}", self,
+                                   :versions_map  => value,
+                                   :version       => version,
+                                   :cookbook_name => cookbook_name
+                               end
+                             end
+                           else
+                             proc do |key, value|
+                               CookbookDir.new(key, self, :versions_map => value, :cookbook_name => key, :version => '_latest' )
+                             end
+                           end
+        @children = rest.get_rest(api_path).tap { |x| puts x }.map(&_to_cookbook_dir).flatten.sort_by { |c| c.name }.tap { |x| puts x }
       end
 
       def create_child_from(other)

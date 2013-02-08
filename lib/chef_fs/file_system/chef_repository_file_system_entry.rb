@@ -45,6 +45,31 @@ module ChefFS
         begin
           if parent.path == '/cookbooks'
             loader = Chef::Cookbook::CookbookVersionLoader.new(file_path, parent.chefignore)
+            # KLUDGE: CODE SMELL
+            # This is a hack to make upload work properly. However, it indicates that
+            # versioned_cookbook options should be a global property of knife, and knife
+            # should not derive the cookbook name from the base path if this is on. In fact
+            # the cookbook may have to derive its name from the metadata instead.
+            #
+            # Berkshelf actually uses its own custom loader. It's something to consider
+            #
+            # If CHEF-3307 is merged in, there needs to be a check to make sure that metadata cookbook name is the same
+            # as the directory name, with the version tag.
+            if Chef::Config[:versioned_cookbooks]
+              puts "CookbookVersion: #{loader.cookbook_version}"
+
+              # See Erchef code
+              # https://github.com/opscode/chef_objects/blob/968a63344d38fd507f6ace05f73d53e9cd7fb043/src/chef_regex.erl#L94
+              name_match = /^([.a-zA-Z0-9_-]+)-\d+\.\d+\.\d+$/.match(File.basename(file_path))
+              fail "When versioned_cookbooks mode is on, cookbook #{file_path} must match format <cookbook_name>-x.y.z" if name_match.nil?
+
+              canonical_cookbook_name = name_match[1]
+              puts "Setting canonical cookbook name in a versioned cookbook: #{canonical_cookbook_name}"
+
+              # Warning, leaky abstraction
+              loader.instance_variable_set(:@cookbook_name, canonical_cookbook_name)
+            end
+
             loader.load_cookbooks
             return loader.cookbook_version
           end
